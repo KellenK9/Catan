@@ -5,6 +5,32 @@ import numpy.random
 
 
 def generate_board():
+    global gamestate
+    global game_won
+    game_won = False
+    global total_cities
+    total_cities = 0
+    global total_settlements
+    total_settlements = 0
+    global total_roads
+    total_roads = 0
+    global longest_road_length
+    longest_road_length = 0
+    global has_longest_road
+    has_longest_road = False
+    global has_largest_army
+    has_largest_army = False
+
+    global max_settlements
+    max_settlements = 5
+    global max_cities
+    max_cities = 4
+    global max_roads
+    max_roads = 15
+
+    global knights_played
+    knights_played = 0
+
     global turns_taken
     turns_taken = 0
 
@@ -12,6 +38,69 @@ def generate_board():
     victory_points = 2
 
     global dev_deck
+    global resource_cards
+    global dev_cards
+    global hex_tiles_arr
+    global settlement_locations_arr
+    global road_locations_arr
+    global settlements_owned_arr
+    global port_locations_arr
+
+    global road_resource_cards
+    global settlement_resource_cards
+    global city_resource_cards
+    global dev_resource_cards
+    road_resource_cards = {
+        "wood": 1,
+        "wheat": 0,
+        "wool": 0,
+        "ore": 0,
+        "brick": 1
+    }
+    settlement_resource_cards = {
+        "wood": 1,
+        "wheat": 1,
+        "wool": 1,
+        "ore": 0,
+        "brick": 1
+    }
+    city_resource_cards = {
+        "wood": 0,
+        "wheat": 2,
+        "wool": 0,
+        "ore": 3,
+        "brick": 0
+    }
+    dev_resource_cards = {
+        "wood": 0,
+        "wheat": 1,
+        "wool": 1,
+        "ore": 1,
+        "brick": 0
+    }
+
+    #settlement location: port type
+    port_locations_arr = {
+        0: "3to1",
+        1: "3to1",
+        3: "wheat",
+        4: "wheat",
+        7: "wood",
+        14: "ore",
+        15: "ore",
+        17: "wood",
+        26: "3to1",
+        28: "brick",
+        37: "3to1",
+        38: "brick",
+        45: "wool",
+        46: "wool",
+        47: "3to1",
+        48: "3to1",
+        50: "3to1",
+        51: "3to1"
+    }
+
     dev_deck = ["monopoly", "monopoly", "road_building", "road_building", "year_of_plenty", "year_of_plenty", "vp", "vp", "vp", "vp", "vp",
                 "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight"]
     numpy.random.shuffle(dev_deck)
@@ -27,7 +116,6 @@ def generate_board():
     }
 
     #Create arrays for hand
-    global resource_cards
     resource_cards = {
         "wood": 0,
         "wheat": 0,
@@ -35,7 +123,7 @@ def generate_board():
         "ore": 0,
         "brick": 0
     }
-    global dev_cards
+
     dev_cards = {
         "vp": 0,
         "knight": 0,
@@ -48,13 +136,9 @@ def generate_board():
     num_tiles_used = [1, 4, 4, 4, 3, 3]
 
     #Set up board arrays
-    global hex_tiles_arr
     hex_tiles_arr = [] #[[wood, 3], [ore, 11], etc...]
-    global settlement_locations_arr
     settlement_locations_arr = []  # vertices
-    global road_locations_arr
     road_locations_arr = [] #edges
-    global settlements_owned_arr
     settlements_owned_arr = []
     for i in range(72):
         road_locations_arr.append('.') #Change to X when Road is built
@@ -152,6 +236,75 @@ def generate_board():
     settlement_locations_arr[52] = [[18], [51,53], [70,71]]
     settlement_locations_arr[53] = [[18], [45,52], [65,71]]
 
+    gamestate = [turns_taken,
+                 victory_points,
+                 total_cities,
+                 total_settlements,
+                 total_roads,
+                 longest_road_length,
+                 has_longest_road,
+                 has_largest_army,
+                 dev_deck,
+                 resource_cards,
+                 dev_cards,
+                 hex_tiles_arr,
+                 road_locations_arr,
+                 settlement_locations_arr,
+                 settlements_owned_arr,
+                 road_resource_cards,
+                 settlement_resource_cards,
+                 city_resource_cards,
+                 dev_resource_cards,
+                 max_settlements,
+                 max_cities,
+                 max_roads,
+                 knights_played,
+                 port_locations_arr
+                 ]
+
+def update_gamestate():
+    global game_won #
+    global total_cities #
+    global total_settlements #
+    global total_roads #
+    global victory_points
+    global turns_taken #
+    global longest_road_length #
+    global has_longest_road #
+    global has_largest_army #
+    global knights_played #
+    global settlements_owned_arr #
+    global road_locations_arr #
+    global dev_cards #
+    turns_taken += 1
+    longest_road_length = determine_longest_continuous_road()
+    if(longest_road_length > 4):
+        has_longest_road = True
+    if(knights_played > 2):
+        has_largest_army = True
+    temp_total_roads = 0
+    temp_total_settlements = 0
+    temp_total_cities = 0
+    for i in road_locations_arr:
+        if i == "X":
+            temp_total_roads += 1
+    total_roads = temp_total_roads
+    for j in settlements_owned_arr:
+        if j == 1:
+            temp_total_settlements += 1
+        if j == 2:
+            temp_total_cities += 1
+    total_settlements = temp_total_settlements
+    total_cities = temp_total_cities
+    victory_points = (2*total_cities) + total_settlements + dev_cards["vp"]
+    if has_largest_army:
+        victory_points += 2
+    if has_longest_road:
+        victory_points += 2
+    if(victory_points > 9):
+        print("Congratulations! You won with " + victory_points + " victory points")
+        game_won = True
+
 #When printing hexes on the board, wd means wood, wl means wool, wt means wheats, oe means ore, bk means brick, 0 means 10, 1 means 11 and 7 means 12
 def print_board():
     print("         " + str(settlements_owned_arr[1]) + "     " + str(settlements_owned_arr[3]) + "     " + str(settlements_owned_arr[5]))
@@ -207,6 +360,8 @@ def place_settlement(settle1):
             settlements_owned_arr[i] = 9
 
 def place_initial_settlements():
+    global total_settlements
+    global total_roads
     settle1 = int(input("Place first settlement (enter number from 0-53)"))
     while(settle1 < 0 or settle1 > 53):
         print("That number was not a valid settlement location")
@@ -241,13 +396,14 @@ def place_initial_settlements():
     for i in settlement_locations_arr[settle2][0]:
         if(hex_tiles_arr[i][0] != "dessert"):
             resource_cards[hex_tiles_arr[i][0]] += 1
+    total_settlements = 2
+    total_roads = 2
     print_board()
     print_hand()
 
 def roll_dice():
-    global turns_taken
-    turns_taken += 1
-    print("Turn: " + str(turns_taken))
+    global victory_points
+    print("Turn: " + str(turns_taken) + "          Victory Points: " + str(victory_points))
     die1 = random.randint(1, 6)
     die2 = random.randint(1, 6)
     sum = die1 + die2
@@ -263,9 +419,10 @@ def get_resources():
             if int(settlements_owned_arr[settlement]) == 1 or int(settlements_owned_arr[settlement]) == 2: #only consider settlements and cities
                 neighboringhexes = settlement_locations_arr[settlement][0] #get neighboring hexes
                 for hex in neighboringhexes:
-                    if int(hex_tiles_arr[hex][1]) == sum: #check if hexes match die roll
-                        resource_cards[hex_tiles_arr[hex][0]] += int(settlements_owned_arr[settlement])
-                        print("Added " + str(settlements_owned_arr[settlement]) + " " + hex_tiles_arr[hex][0] + " to hand.")
+                    if(hex_tiles_arr[hex][0] != "dessert"):
+                        if int(hex_tiles_arr[hex][1]) == sum: #check if hexes match die roll
+                            resource_cards[hex_tiles_arr[hex][0]] += int(settlements_owned_arr[settlement])
+                            print("Added " + str(settlements_owned_arr[settlement]) + " " + hex_tiles_arr[hex][0] + " to hand.")
 
 def ask_to_play_dev_cards():
     total_cards = 0
@@ -282,69 +439,67 @@ def ask_to_play_dev_cards():
                         print("Type '" + str(num) + "' to play " + str(card))
                         num += 1
             card_played = input("Or type anything else to cancel")
+            if not card_played.isnumeric():
+                return None
             if int(card_played) > 0 and int(card_played) < num:
                 for card in dev_cards:
                     if card != "vp":
                         if dev_cards[card] > 0:
-                            if num == 1:
-                                card_played = card
+                            if num == 2:
                                 return card
                             else:
                                 num = num - 1
     return None
 
 def play_card(card_type):
+    global knights_played
+    global dev_cards
     print("Playing " + card_type)
     dev_cards[card_type] -= 1
+    if card_type == "knight":
+        knights_played += 1
 
 def ask_to_buy():
     possible_buys = []
-    road_resource_cards = {
-        "wood": 1,
-        "wheat": 0,
-        "wool": 0,
-        "ore": 0,
-        "brick": 1
-    }
-    settlement_resource_cards = {
-        "wood": 1,
-        "wheat": 1,
-        "wool": 1,
-        "ore": 0,
-        "brick": 1
-    }
-    city_resource_cards = {
-        "wood": 0,
-        "wheat": 2,
-        "wool": 0,
-        "ore": 3,
-        "brick": 0
-    }
-    dev_resource_cards = {
-        "wood": 0,
-        "wheat": 1,
-        "wool": 1,
-        "ore": 1,
-        "brick": 0
-    }
+    global road_resource_cards
+    global settlement_resource_cards
+    global city_resource_cards
+    global dev_resource_cards
+    global total_settlements
+    global settlements_owned_arr
+    global road_locations_arr
+    global settlement_locations_arr
+
+    #Determine if you can buy roads
     can_buy = True
     for resource in resource_cards:
         if resource_cards[resource] < road_resource_cards[resource]:
             can_buy = False
     if can_buy == True:
         possible_buys.append("road")
-    can_buy = True
+    #determine if you can buy settlements      For some reason this sections is not working correctly. can_buy is true when it shouldn't be
+    can_buy = False
+    for vertex in range(len(settlement_locations_arr)):
+        if settlements_owned_arr[vertex] == 0:
+            roads = settlement_locations_arr[vertex][2]
+            for road in roads:
+                if road_locations_arr[road] == "X":
+                    can_buy = True
     for resource in resource_cards:
         if resource_cards[resource] < settlement_resource_cards[resource]:
             can_buy = False
     if can_buy == True:
         possible_buys.append("settlement")
+    #determine if you can buy cities
     can_buy = True
     for resource in resource_cards:
         if resource_cards[resource] < city_resource_cards[resource]:
             can_buy = False
+    if(total_settlements == 0):
+        can_buy = False
     if can_buy == True:
         possible_buys.append("city")
+    #determine if you can buy dev cards
     can_buy = True
     for resource in resource_cards:
         if resource_cards[resource] < dev_resource_cards[resource]:
@@ -357,10 +512,62 @@ def ask_to_buy():
         num += 1
     if num != 1:
         buy = input("Or type anything else to not buy anything")
+        if not buy.isnumeric():
+            return None
         if int(buy) > 0 and int(buy) < num:
             bought = possible_buys[int(buy)-1]
             print("You bought a " + bought)
             return bought
+    return None
+
+def ask_to_port_trade():
+    global port_locations_arr
+    global settlements_owned_arr
+    global resource_cards
+    possible_trade_ins = []
+    has_3to1 = False
+    resource_ports = []
+    for port in port_locations_arr:
+        if settlements_owned_arr[port] == 1 or settlements_owned_arr[port] == 2:
+            if port_locations_arr[port] == "3to1":
+                has_3to1 = True
+            else:
+                resource_ports.append(port_locations_arr[port])
+    for type in resource_cards:
+        if resource_cards[type] > 3:
+            if(type in resource_ports):
+                possible_trade_ins.append([2, type])
+            elif(has_3to1):
+                possible_trade_ins.append([3, type])
+            else:
+                possible_trade_ins.append([4, type])
+
+    num = 1
+    for resources in possible_trade_ins:
+        print("Type " + str(num) + " to trade in " + str(resources[0]) + " " + str(resources[1]) + " for 1 of any resource")
+        num += 1
+    if num != 1:
+        buy = input("Or type anything else to not buy anything")
+        if not buy.isnumeric():
+            return None
+        if int(buy) > 0 and int(buy) < num:
+            bought = possible_trade_ins[int(buy) - 1]
+            print("You traded in " + str(bought[0]) + " " + str(bought[1]))
+            new_resource = input("What resource would you like? (Type 1 for wood, 2 for wheat, 3 for wool, 4 for ore, and 5 for brick)")
+            if not new_resource.isnumeric():
+                return None
+            resource_cards[bought[1]] -= bought[0]
+            if(int(new_resource) == 1):
+                resource_cards["wood"] += 1
+            elif(int(new_resource) == 2):
+                resource_cards["wheat"] += 1
+            elif(int(new_resource) == 3):
+                resource_cards["wool"] += 1
+            elif(int(new_resource) == 4):
+                resource_cards["ore"] += 1
+            elif(int(new_resource) == 5):
+                resource_cards["brick"] += 1
+            return [bought, new_resource]
     return None
 
 def determine_longest_continuous_road():
@@ -393,6 +600,10 @@ def determine_longest_continuous_road():
 
 
 def get_possible_road_placements(): #Assuming initial roads are already placed
+    global total_roads
+    global max_roads
+    if(total_roads == max_roads):
+        return []
     curr_roads = []
     for road in range(len(road_locations_arr)):
         if road_locations_arr[road] == 'X':
@@ -410,8 +621,12 @@ def get_possible_road_placements(): #Assuming initial roads are already placed
     return buildable_roads2
 
 def get_possible_settlement_locations():
+    global total_settlements
+    global max_settlements
     possible_settlements = []
     possible_settlements2 = []
+    if(total_settlements == max_settlements):
+        return []
     for settlement in range(len(settlements_owned_arr)):
         if settlements_owned_arr[settlement] == 0:
             possible_settlements.append(settlement)
@@ -423,6 +638,10 @@ def get_possible_settlement_locations():
     return possible_settlements2
 
 def get_possible_city_locations():
+    global max_cities
+    global total_cities
+    if(max_cities == total_cities):
+        return []
     possible_cities = []
     for settlement in range(len(settlements_owned_arr)):
         if settlements_owned_arr[settlement] == 1:
@@ -430,28 +649,39 @@ def get_possible_city_locations():
     return possible_cities
 
 def buy_road():
+    global total_roads
+    global road_locations_arr
+    global resource_cards
     possible_roads = get_possible_road_placements()
     road1 = int(input("Place a road (enter one of the following numbers: " + str(possible_roads) + ")"))
     while (road1 not in possible_roads):
         print("That was not a valid road location")
         road1 = int(input("Place a road (enter one of the following numbers: " + str(possible_roads) + ")"))
     road_locations_arr[road1] = "X"
+    total_roads += 1
     resource_cards["wood"] -= 1
     resource_cards["brick"] -= 1
 
 def buy_settlement():
+    global total_settlements
+    global resource_cards
+    global settlements_owned_arr
     possible_settlement_locations = get_possible_settlement_locations()
     settlement = int(input("Place a settlement (enter one of the following numbers: " + str(possible_settlement_locations) + ")"))
     while (settlement not in possible_settlement_locations):
         print("That was not a valid settlement location")
         settlement = int(input("Place a settlement (enter one of the following numbers: " + str(possible_settlement_locations) + ")"))
     settlements_owned_arr[settlement] = 1
+    total_settlements += 1
     resource_cards["wood"] -= 1
     resource_cards["brick"] -= 1
     resource_cards["wool"] -= 1
     resource_cards["wheat"] -= 1
 
 def buy_city():
+    global total_cities
+    global resource_cards
+    global settlements_owned_arr
     possible_city = get_possible_city_locations()
     city = int(input("Place a city (enter one of the following numbers: " + str(possible_city) + ")"))
     while (city not in possible_city):
@@ -462,6 +692,9 @@ def buy_city():
     resource_cards["wheat"] -= 2
 
 def buy_dev_card():
+    global resource_cards
+    global dev_cards
+    global dev_deck
     drawn_card = dev_deck.pop()
     resource_cards["ore"] -= 1
     resource_cards["wool"] -= 1
@@ -469,18 +702,25 @@ def buy_dev_card():
     dev_cards[drawn_card] += 1
 
 def play_game_manually():
+    global game_won
     generate_board()
+    update_gamestate()
     print_board()
     place_initial_settlements()
     game_won = False
     while game_won == False:
+        update_gamestate()
         get_resources()
         print_hand()
         d_card = ask_to_play_dev_cards()
         if d_card != None:
             play_card(d_card)
+        port_trade = ask_to_port_trade()
+        while port_trade != None:
+            port_trade = ask_to_port_trade()
         bought = ask_to_buy()
         while bought != None:
+            print_board()
             if bought == "road":
                 buy_road()
             if bought == "settlement":
@@ -489,6 +729,7 @@ def play_game_manually():
                 buy_city()
             if bought == "development card":
                 buy_dev_card()
+            update_gamestate()
             bought = ask_to_buy()
 
 
