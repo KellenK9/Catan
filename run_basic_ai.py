@@ -188,9 +188,11 @@ base_ai = {
 #This should be pretty often as the AI should update how it values certain hexes whenever the board_state changes
 
 #Teddy only buys dev cards
-#Alexis only buys roads and settlements and cities
+#Alexis doesn't buy dev cards
+#Santa is a balanced player
 global Alexis
 global Teddy
+global Santa
 def set_ai(name):
     if(name == "Alexis"):
         Alexis = base_ai
@@ -205,6 +207,14 @@ def set_ai(name):
         Teddy["value_of_goals"]["settlement"] = 0
         Teddy["value_of_goals"]["city"] = 0
         return Teddy
+    if(name == "Santa"):
+        Santa = base_ai
+        Santa["value_of_goals"]["dev"] = 1.4
+        Santa["value_of_goals"]["city"] = 1.3
+        Santa["value_of_goals"]["settlement"] = 1.2
+        Santa["value_of_goals"]["road"] = 1.1
+        Santa["propensity_to_trade"] = 1.5
+        return Santa
 
 def sim_multiple_games(number_of_games, ai_name):
     turns_arr = []
@@ -215,11 +225,11 @@ def sim_multiple_games(number_of_games, ai_name):
         number_of_games -= 1
     print(turns_arr)
 
-def sim_game(ai_name):
+def sim_seeded_game(ai_name, seed):
     ai = set_ai(ai_name)
-    turns = sim.sim_game(ai)
+    turns = sim.sim_game(ai, seed)
     print("The AI " + ai_name + " took " + str(turns) + " to win.")
 
-sim_game("Alexis")
+sim_seeded_game("Alexis", 10)
 #sim_multiple_games(5, "Alexis")
 #sim.play_game_manually()

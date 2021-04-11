@@ -1,7 +1,7 @@
 #Simulate a single player playing Catan
 #Optimize to reduce the number of turns it takes to get 10 VP's
 import random
-import numpy.random
+#import numpy.random
 
 
 def generate_board():
@@ -105,7 +105,7 @@ def generate_board():
 
     dev_deck = ["road_building", "road_building", "year_of_plenty", "year_of_plenty", "vp", "vp", "vp", "vp", "vp", #"monopoly", "monopoly",
                 "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight", "knight"]
-    numpy.random.shuffle(dev_deck)
+    random.shuffle(dev_deck)
 
     #tiles correspond to numbers
     tiles = {
@@ -1092,7 +1092,7 @@ def buy_settlement():
     while (settlement not in possible_settlement_locations):
         print("That was not a valid settlement location")
         settlement = int(input("Place a settlement (enter one of the following numbers: " + str(possible_settlement_locations) + ")"))
-    settlements_owned_arr[settlement] = 1
+    place_settlement(settlement)
     total_settlements += 1
     resource_cards["wood"] -= 1
     resource_cards["brick"] -= 1
@@ -1109,7 +1109,7 @@ def sim_buy_settlement(ai):
         if(ai["best_vertices"][settle] >= settlement[1]):
             settlement[0] = settle
             settlement[1] = ai["best_vertices"][settle]
-    settlements_owned_arr[settlement[0]] = 1
+    place_settlement(settlement[0])
     total_settlements += 1
     resource_cards["wood"] -= 1
     resource_cards["brick"] -= 1
@@ -1174,7 +1174,7 @@ def update_value_of_goals(ai):
         ai["value_of_goals"]["city"] = 0
     if (total_settlements >= max_settlements):
         ai["value_of_goals"]["settlement"] = 0
-    if (total_settlements < max_settlements):
+    if (total_settlements < max_settlements and ai["value_of_goals"]["settlement"] == 0):
         ai["value_of_goals"]["settlement"] = 1
     return ai
 
@@ -1336,7 +1336,7 @@ def play_game_manually():
             update_gamestate(1)
             bought = ask_to_buy()
 
-def sim_game(ai):
+def sim_game(ai, seed):
     global won_game
     global simming
     global victory_points
@@ -1344,6 +1344,7 @@ def sim_game(ai):
     global has_largest_army
     global turns_taken
     global max_turns
+    random.seed(seed)
     max_turns = 800
     simming = True
     generate_board()
