@@ -266,7 +266,7 @@ def generate_board():
                  port_locations_arr
                  ]
 
-def update_gamestate():
+def update_gamestate(ai):
     global game_won #
     global total_cities #
     global total_settlements #
@@ -280,6 +280,7 @@ def update_gamestate():
     global settlements_owned_arr #
     global road_locations_arr #
     global dev_cards #
+    global simming
     turns_taken += 1
     longest_road_length = determine_longest_continuous_road()
     if(longest_road_length > 4):
@@ -308,7 +309,8 @@ def update_gamestate():
     if(victory_points > 9):
         print("Congratulations! You won with " + str(victory_points) + " victory points")
         game_won = True
-    #Update AI values
+    if(simming):
+        ai = update_ai(ai)
 
 #When printing hexes on the board, wd means wood, wl means wool, wt means wheats, oe means ore, bk means brick, 0 means 10, 1 means 11 and 7 means 12
 def print_board():
@@ -418,7 +420,7 @@ def sim_place_initial_settlements(ai):
             best_spot[0] = spot
             best_spot[1] = ai["best_vertices"][spot]
     place_settlement(best_spot[0])
-    #Update AI values
+    ai = update_ai(ai)
     #Place first road
     possible_roads = settlement_locations_arr[best_spot[0]][2]
     best_edge = [0, 0]
@@ -428,7 +430,7 @@ def sim_place_initial_settlements(ai):
                 best_edge[0] = road_spot
                 best_edge[1] = ai["best_edges"][road_spot]
     road_locations_arr[best_edge[0]] = "X"
-    #Update AI values
+    ai = update_ai(ai)
     #Place second settlement
     best_spot = [0, 0]
     for spot in ai["best_vertices"]:
@@ -436,7 +438,7 @@ def sim_place_initial_settlements(ai):
             best_spot[0] = spot
             best_spot[1] = ai["best_vertices"][spot]
     place_settlement(best_spot[0])
-    #Update AI values
+    ai = update_ai(ai)
     #Place second road
     possible_roads = settlement_locations_arr[best_spot[0]][2]
     best_edge = [0, 0]
@@ -451,7 +453,7 @@ def sim_place_initial_settlements(ai):
             resource_cards[hex_tiles_arr[i][0]] += 1
     total_settlements = 2
     total_roads = 2
-    #Update AI values
+    ai = update_ai(ai)
 
 def roll_dice():
     global victory_points
@@ -728,7 +730,7 @@ def sim_discard_any_card(ai):
         if resource_cards[resource] > 0:
             possible_resources.append(resource)
     if len(possible_resources) != 0:
-        resource_to_discard = ["wood", 1] #card name, value of card
+        resource_to_discard = ["wood", 9999999] #card name, value of card
         for card in ai["value_of_resources"]:
             if(ai["value_of_resources"][card] <= resource_to_discard[1] and card in possible_resources):
                 resource_to_discard[0] = card
@@ -803,6 +805,11 @@ def sim_ask_to_buy(ai):
     global city_resource_cards
     global dev_resource_cards
     global total_settlements
+    global total_roads
+    global total_cities
+    global max_roads
+    global max_cities
+    global max_settlements
     global settlements_owned_arr
     global road_locations_arr
     global settlement_locations_arr
@@ -813,6 +820,8 @@ def sim_ask_to_buy(ai):
     for resource in resource_cards:
         if resource_cards[resource] < road_resource_cards[resource]:
             can_buy = False
+    if(total_roads >= max_roads):
+        can_buy = False
     if can_buy == True:
         possible_buys.append("road")
     # determine if you can buy settlements
@@ -826,6 +835,8 @@ def sim_ask_to_buy(ai):
     for resource in resource_cards:
         if resource_cards[resource] < settlement_resource_cards[resource]:
             can_buy = False
+    if(total_settlements >= max_settlements):
+        can_buy = False
     if can_buy == True:
         possible_buys.append("settlement")
     # determine if you can buy cities
@@ -834,6 +845,8 @@ def sim_ask_to_buy(ai):
         if resource_cards[resource] < city_resource_cards[resource]:
             can_buy = False
     if (total_settlements == 0):
+        can_buy = False
+    if(total_cities >= max_cities):
         can_buy = False
     if can_buy == True:
         possible_buys.append("city")
@@ -849,23 +862,22 @@ def sim_ask_to_buy(ai):
     bought = [road, 0] #What to buy, propensity to buy it
     for i in possible_buys:
         if i == "road":
-            if ai["propensity_to_buy_road"] > bought[1]:
+            if ai["value_of_goals"]["road"] > bought[1]:
                 bought[0] = i
-                bought[1] = ai["propensity_to_buy_road"]
+                bought[1] = ai["value_of_goals"]["road"]
         if i == "city":
-            if ai["propensity_to_buy_city"] > bought[1]:
+            if ai["value_of_goals"]["city"] > bought[1]:
                 bought[0] = i
-                bought[1] = ai["propensity_to_buy_city"]
+                bought[1] = ai["value_of_goals"]["city"]
         if i == "settlement":
-            if ai["propensity_to_buy_settlement"] > bought[1]:
+            if ai["value_of_goals"]["settlement"] > bought[1]:
                 bought[0] = i
-                bought[1] = ai["propensity_to_buy_settlement"]
+                bought[1] = ai["value_of_goals"]["settlement"]
         if i == "development card":
-            if ai["propensity_to_buy_dev"] > bought[1]:
+            if ai["value_of_goals"]["dev"] > bought[1]:
                 bought[0] = i
-                bought[1] = ai["propensity_to_buy_dev"]
-    x = random.random() #returns a value between 0.0 and 1.0
-    if(bought[1] >= x):
+                bought[1] = ai["value_of_goals"]["dev"]
+    if(bought[1] > 0):
         return bought[0]
     else:
         return None
@@ -942,12 +954,25 @@ def sim_ask_to_port_trade(ai):
                 possible_trade_ins.append([3, type])
             elif (resource_cards[type] >= 4):
                 possible_trade_ins.append([4, type])
-
+    port_trade = []
     for trade in possible_trade_ins:
         for resource_wanted in resource_list:
-            if(1 < (ai["propensity_to_trade"]*ai["value_of_resources"][trade[1]])/(trade[0]*ai["value_of_resources"][resource_wanted])):
-                resource_cards[trade[1]] -= trade[0]
-                resource_cards[resource_wanted] += 1
+            trade_value = (ai["propensity_to_trade"]*ai["value_of_resources"][trade[1]])/(trade[0]*ai["value_of_resources"][resource_wanted])
+            if(1 < trade_value and resource_cards[trade[1]] > trade[0]):
+                trade_option = [trade_value, resource_wanted, trade[1], trade[0]]
+                port_trade.append(trade_option)
+    max_value = 0
+    curr_trade_in = []
+    for trade_ins in port_trade:
+        if max_value < trade_ins[0]:
+            max_value = trade_ins[0]
+            curr_trade_in = trade_ins
+    return curr_trade_in
+
+def sim_port_trade(port_trade):
+    global resource_cards
+    resource_cards[port_trade[1]] += 1
+    resource_cards[port_trade[2]] -= port_trade[3]
 
 def determine_longest_continuous_road():
     max_road_length = 1
@@ -981,7 +1006,7 @@ def determine_longest_continuous_road():
 def get_possible_road_placements(): #Assuming initial roads are already placed
     global total_roads
     global max_roads
-    if(total_roads == max_roads):
+    if(total_roads >= max_roads):
         return []
     curr_roads = []
     for road in range(len(road_locations_arr)):
@@ -1004,7 +1029,7 @@ def get_possible_settlement_locations():
     global max_settlements
     possible_settlements = []
     possible_settlements2 = []
-    if(total_settlements == max_settlements):
+    if(total_settlements >= max_settlements):
         return []
     for settlement in range(len(settlements_owned_arr)):
         if settlements_owned_arr[settlement] == 0:
@@ -1021,7 +1046,7 @@ def get_possible_settlement_locations():
 def get_possible_city_locations():
     global max_cities
     global total_cities
-    if(max_cities == total_cities):
+    if(total_cities >= max_cities):
         return []
     possible_cities = []
     for settlement in range(len(settlements_owned_arr)):
@@ -1110,10 +1135,10 @@ def sim_buy_city(ai):
     global settlements_owned_arr
     possible_city = get_possible_city_locations()
     city = [0, 0]
-    for city in possible_city:
-        if(ai["best_vertices"][city] >= city[1]):
-            city[0] = city
-            city[1] = ai["best_vertices"][city]
+    for city_loop in possible_city:
+        if(ai["best_vertices"][city_loop] >= city[1]):
+            city[0] = city_loop
+            city[1] = ai["best_vertices"][city_loop]
     settlements_owned_arr[city[0]] = 2
     resource_cards["ore"] -= 3
     resource_cards["wheat"] -= 2
@@ -1129,7 +1154,28 @@ def buy_dev_card():
     dev_cards[drawn_card] += 1
 
 def update_ai(ai):
+    ai = update_value_of_goals(ai)
     ai = update_value_of_resources(ai)
+    ai = update_vertex_values(ai)
+    ai = update_edge_values(ai)
+    ai = update_robber_hex_values(ai)
+    return ai
+
+def update_value_of_goals(ai):
+    global total_roads
+    global total_settlements
+    global total_cities
+    global max_roads
+    global max_cities
+    global max_settlements
+    if(total_roads >= max_roads):
+        ai["value_of_goals"]["road"] = 0
+    if (total_cities >= max_cities):
+        ai["value_of_goals"]["city"] = 0
+    if (total_settlements >= max_settlements):
+        ai["value_of_goals"]["settlement"] = 0
+    if (total_settlements < max_settlements):
+        ai["value_of_goals"]["settlement"] = 1
     return ai
 
 def update_value_of_resources(ai):
@@ -1150,38 +1196,46 @@ def update_value_of_resources(ai):
         reqs = 2
         diff = road_resource_cards[resource] - resource_cards[resource] #requirements - hand
         if(diff == 0):
-            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["propensity_to_buy_road"]
+            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["value_of_goals"]["road"]
         if(diff == 1):
-            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["propensity_to_buy_road"]
-        if(diff < 0):
-            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["propensity_to_buy_road"]
+            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["value_of_goals"]["road"]
+        if(diff > 1):
+            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["value_of_goals"]["road"]
+        if (diff < 0):
+            ai["value_of_resources"][resource] += ai["weight_neg_diff"] * diff * ai["value_of_goals"]["road"]
     for resource in settlement_resource_cards:
         reqs = 4
         diff = settlement_resource_cards[resource] - resource_cards[resource] #requirements - hand
         if(diff == 0):
-            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["propensity_to_buy_settlement"]
+            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["value_of_goals"]["settlement"]
         if(diff == 1):
-            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["propensity_to_buy_settlement"]
-        if(diff < 0):
-            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["propensity_to_buy_settlement"]
+            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["value_of_goals"]["settlement"]
+        if(diff > 1):
+            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["value_of_goals"]["settlement"]
+        if (diff < 0):
+            ai["value_of_resources"][resource] += ai["weight_neg_diff"] * diff * ai["value_of_goals"]["settlement"]
     for resource in city_resource_cards:
         reqs = 5
         diff = city_resource_cards[resource] - resource_cards[resource] #requirements - hand
         if(diff == 0):
-            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["propensity_to_buy_city"]
+            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["value_of_goals"]["city"]
         if(diff == 1):
-            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["propensity_to_buy_city"]
-        if(diff < 0):
-            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["propensity_to_buy_city"]
+            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["value_of_goals"]["city"]
+        if(diff > 1):
+            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["value_of_goals"]["city"]
+        if (diff < 0):
+            ai["value_of_resources"][resource] += ai["weight_neg_diff"] * diff * ai["value_of_goals"]["city"]
     for resource in dev_resource_cards:
         reqs = 3
         diff = dev_resource_cards[resource] - resource_cards[resource] #requirements - hand
         if(diff == 0):
-            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["propensity_to_buy_dev"]
+            ai["value_of_resources"][resource] += ai["weight_no_diff"] * resource_cards[resource] * reqs * ai["value_of_goals"]["dev"]
         if(diff == 1):
-            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["propensity_to_buy_dev"]
-        if(diff < 0):
-            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["propensity_to_buy_dev"]
+            ai["value_of_resources"][resource] += ai["weight_small_diff"] * reqs * ai["value_of_goals"]["dev"]
+        if(diff > 1):
+            ai["value_of_resources"][resource] += ai["weight_big_diff"] * diff * ai["value_of_goals"]["dev"]
+        if (diff < 0):
+            ai["value_of_resources"][resource] += ai["weight_neg_diff"] * diff * ai["value_of_goals"]["dev"]
     #Make sure no resources are in the negatives
     max = 0
     for resource in resource_cards:
@@ -1190,18 +1244,63 @@ def update_value_of_resources(ai):
         if (ai["value_of_resources"][resource] > max):
             max = ai["value_of_resources"][resource]
     #Scale resources so the maximum is equal to ai["max_resource_value"]
-    if(max > ai["max_resource_value"]):
-        for resource in resource_cards:
+    for resource in resource_cards:
+        if (ai["value_of_resources"][resource] > ai["max_resource_value"]):
             ai["value_of_resources"][resource] = ai["max_resource_value"] * ai["value_of_resources"][resource] / max
     return ai
 
 def update_vertex_values(ai):
+    global settlement_locations_arr
+    global road_locations_arr
+    global hex_tiles_arr
+    global port_locations_arr
+    max_value = 0
+    for vertex in ai["best_vertices"]:
+        value = 0
+        for hex in settlement_locations_arr[vertex][0]:
+            if(hex_tiles_arr[hex][0] != "dessert"):
+                value += hex_tiles_arr[hex][1] * ai["value_of_resources"][hex_tiles_arr[hex][0]] * ai["weight_hex"]
+            else:
+                value += ai["weight_dessert"]
+        if(vertex in port_locations_arr):#Add port_weight if vertex has a port
+            value += ai["weight_has_port"]
+        ai["best_vertices"][vertex] += value * ai["weight_hex_change"]
+        if (ai["best_vertices"][vertex] > max_value):
+            max_value = ai["best_vertices"][vertex]
+    for vertex in ai["best_vertices"]:
+        if(ai["best_vertices"][vertex] <= 0):
+            ai["best_vertices"][vertex] = 0.01
+        if(ai["best_vertices"][vertex] > ai["max_vertex_value"]):
+            ai["best_vertices"][vertex] = ai["best_vertices"][vertex] * ai["max_vertex_value"] / max_value
     return ai
 
 def update_edge_values(ai):
+    global settlement_locations_arr
+    global road_locations_arr
+    global hex_tiles_arr
+    global settlements_owned_arr
+    #Each road is connected by two vertices. The value of an edge should just be the average of these two values
+    for edge in ai["best_edges"]:
+        vertexes = []
+        for vertex in settlements_owned_arr:
+            if(edge in settlement_locations_arr[vertex][2]):
+                vertexes.append(ai["best_vertices"][vertex])
+        sum = 0
+        for i in vertexes:
+            sum += i
+            sum = sum / len(vertexes)
+        ai["best_edges"][edge] = sum
     return ai
 
 def update_robber_hex_values(ai):
+    global settlement_locations_arr
+    global settlements_owned_arr
+    global hex_tiles_arr
+    for hex in hex_tiles_arr:
+        for vertex in settlements_owned_arr:
+            if(hex in settlement_locations_arr[vertex][0]):
+                if(settlements_owned_arr[vertex] == 1 or settlements_owned_arr[vertex] == 2):
+                    ai["best_robber_hexes"][hex] = 0 #Don't place robber where you have settlements
     return ai
 
 def play_game_manually():
@@ -1209,12 +1308,12 @@ def play_game_manually():
     global simming
     simming = False
     generate_board()
-    update_gamestate()
+    update_gamestate(1)
     print_board()
     place_initial_settlements()
     game_won = False
     while game_won == False:
-        update_gamestate()
+        update_gamestate(1)
         get_resources(0)#Function takes in ai, if playing manually, use anything
         print_hand()
         d_card = ask_to_play_dev_cards()
@@ -1234,7 +1333,7 @@ def play_game_manually():
                 buy_city()
             if bought == "development card":
                 buy_dev_card()
-            update_gamestate()
+            update_gamestate(1)
             bought = ask_to_buy()
 
 def sim_game(ai):
@@ -1243,20 +1342,26 @@ def sim_game(ai):
     global victory_points
     global has_longest_road
     global has_largest_army
+    global turns_taken
+    global max_turns
+    max_turns = 800
     simming = True
-    print("Starting sim using the AI: " + str(ai))
     generate_board()
-    update_gamestate()
+    update_gamestate(ai)
     game_won = False
     sim_place_initial_settlements(ai)
-    while game_won == False:
-        update_gamestate()
+    while game_won == False and turns_taken < max_turns:
+        update_gamestate(ai)
         get_resources(ai)
+        print_hand()
+        print(ai["value_of_goals"])
+        debug_negative_hand()
         d_card = determine_if_ai_plays_dev_cards(ai)
         if d_card != None:
             sim_play_card(d_card, ai)
         port_trade = sim_ask_to_port_trade(ai)
-        while port_trade != None:
+        while len(port_trade) > 0:
+            sim_port_trade(port_trade)
             port_trade = sim_ask_to_port_trade(ai)
         bought = sim_ask_to_buy(ai)
         while bought != None:
@@ -1268,15 +1373,23 @@ def sim_game(ai):
                 sim_buy_city(ai)
             if bought == "development card":
                 buy_dev_card()
-            update_gamestate()
+            update_gamestate(ai)
             bought = sim_ask_to_buy(ai)
         if(victory_points > 9):
             game_won = True
     print("You won!!!")
     print_hand()
     print_board()
-    print("Did you have longest road? " + has_longest_road)
-    print("Did you have largest army? " + has_largest_army)
+    print("Did you have longest road? " + str(has_longest_road))
+    print("Did you have largest army? " + str(has_largest_army))
+    return turns_taken
 
+
+def debug_negative_hand():
+    global resource_cards
+    for resource in resource_cards:
+        if resource_cards[resource] < 0:
+            print("resource cards negative")
+            temp_var = input("lol")
 
 #play_game_manually()

@@ -5,6 +5,12 @@ base_ai = {
     "propensity_to_buy_city": 1,
     "propensity_to_buy_road": 1,
     "propensity_to_buy_dev": 1,
+    "value_of_goals": { #affects AI valuing resources, while propensity determines at the moment of purchase whether the purchase will be conducted
+        "settlement": 1,
+        "city": 1,
+        "road": 1,
+        "dev": 1
+    },
     "propensity_to_play_knight": 1,
     "propensity_to_play_year_of_plenty": 1,
     "propensity_to_play_road_building": 1,
@@ -12,6 +18,12 @@ base_ai = {
     "weight_no_diff": 1, #Weighted value that can be adjusted by Machine Learning model for how resource values are adjusted
     "weight_small_diff": 1,
     "weight_big_diff": 1,
+    "weight_neg_diff": 1,
+    "weight_hex": 1,
+    "weight_dessert": -1,
+    "weight_hex_change": 1,
+    "weight_has_port": 1,
+    "max_vertex_value": 10,
     "max_resource_value": 4, #Another variable to be tuned my a ML model, this controls the maximum value for the below dict
     "value_of_resources": { #This is the value placed upon each resource card by the ai, must be greater than 0 (not equal to 0)
         "wood": 1,
@@ -176,12 +188,38 @@ base_ai = {
 #This should be pretty often as the AI should update how it values certain hexes whenever the board_state changes
 
 #Teddy only buys dev cards
-Teddy = base_ai
-Teddy["propensity_to_buy_city"] = 0
-Teddy["propensity_to_buy_settlement"] = 0
-Teddy["propensity_to_buy_road"] = 0
-Teddy["propensity_to_trade"] = 4
-Teddy["value_of_resources"]["wood"] = 0.1
-Teddy["value_of_resources"]["brick"] = 0.1
+#Alexis only buys roads and settlements and cities
+global Alexis
+global Teddy
+def set_ai(name):
+    if(name == "Alexis"):
+        Alexis = base_ai
+        Alexis["value_of_goals"]["dev"] = 0
+        Alexis["value_of_goals"]["city"] = 0.5
+        Alexis["value_of_goals"]["settlement"] = 3
+        Alexis["propensity_to_trade"] = 2
+        return Alexis
+    if(name == "Teddy"):
+        Teddy = base_ai
+        Teddy["value_of_goals"]["dev"] = 3
+        Teddy["value_of_goals"]["settlement"] = 0
+        Teddy["value_of_goals"]["city"] = 0
+        return Teddy
 
-sim.sim_game(base_ai)
+def sim_multiple_games(number_of_games, ai_name):
+    turns_arr = []
+    while number_of_games > 0:
+        ai = set_ai(ai_name)
+        turns = sim.sim_game(ai)
+        turns_arr.append(turns)
+        number_of_games -= 1
+    print(turns_arr)
+
+def sim_game(ai_name):
+    ai = set_ai(ai_name)
+    turns = sim.sim_game(ai)
+    print("The AI " + ai_name + " took " + str(turns) + " to win.")
+
+sim_game("Alexis")
+#sim_multiple_games(5, "Alexis")
+#sim.play_game_manually()
